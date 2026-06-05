@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Monitor Barrio República</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #c8f542;
+    --accent2: #f5a623;
+    --danger: #ff4444;
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #444;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-dot {
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .logo h1 {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .logo span {
+    color: var(--accent);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  .last-update {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  /* MAIN LAYOUT */
+  main {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 1rem;
+  }
+
+  /* STATS GRID */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s;
+  }
+
+  .stat-card:hover { background: var(--surface2); }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .stat-card:hover::before { opacity: 1; }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.warning { color: var(--accent2); }
+  .stat-value.danger { color: var(--danger); }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 0.5rem;
+  }
+
+  /* GRID 2 COLUMNS */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+
+  .panel {
+    background: var(--surface);
+    padding: 1.5rem;
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* CHART BARS */
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 120px;
+  }
+
+  .bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar {
+    width: 100%;
+    background: var(--accent);
+    opacity: 0.7;
+    border-radius: 2px 2px 0 0;
+    transition: opacity 0.2s, height 0.5s ease;
+    min-height: 4px;
+  }
+
+  .bar:hover { opacity: 1; }
+
+  .bar-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    text-align: center;
+  }
+
+  /* DONUT */
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .donut-svg { flex-shrink: 0; }
+
+  .donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-label {
+    font-size: 12px;
+    color: var(--text2);
+    flex: 1;
+  }
+
+  .legend-pct {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  /* TABLA DE CAPTURAS */
+  .table-wrap {
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+    background: var(--surface);
+  }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 80px 1fr;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  .table-body { }
+
+  .table-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 80px 1fr;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    align-items: center;
+  }
+
+  .foto-thumb {
+    width: 64px;
+    height: 48px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .foto-thumb:hover { transform: scale(1.05); border-color: var(--accent); }
+
+  .table-row:hover { background: var(--surface2); }
+  .table-row:last-child { border-bottom: none; }
+
+  .td {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .td.highlight { color: var(--text); }
+
+  .clasificacion-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .badge-basura-fuera {
+    background: rgba(255, 68, 68, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+  }
+
+  .badge-llenado {
+    background: rgba(245, 166, 35, 0.1);
+    color: var(--accent2);
+    border: 1px solid rgba(245, 166, 35, 0.3);
+  }
+
+  .badge-vaciado {
+    background: rgba(200, 245, 66, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(200, 245, 66, 0.3);
+  }
+
+  .badge-sin-datos {
+    background: rgba(255,255,255,0.05);
+    color: var(--text3);
+    border: 1px solid var(--border);
+  }
+
+  /* LOADING */
+  .loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2rem;
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* EMPTY STATE */
+  .empty {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px dashed var(--border);
+    margin: 1rem 0;
+  }
+
+  /* SPOT INFO */
+  .spot-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+
+  .spot-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  .spot-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .spot-divider {
+    width: 1px;
+    height: 30px;
+    background: var(--border);
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer p {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .table-header, .table-row { grid-template-columns: 1fr 1fr 1fr; }
+    .th:nth-child(4), .th:nth-child(5), .th:nth-child(6),
+    .td:nth-child(4), .td:nth-child(5), .td:nth-child(6) { display: none; }
+    main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <h1>Monitor <span>Barrio República</span></h1>
+  </div>
+  <div class="header-right">
+    <span class="status-badge" id="status-badge">● CONECTANDO</span>
+    <span class="last-update" id="last-update">—</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- SPOT INFO -->
+  <div class="spot-info">
+    <div>
+      <div class="spot-label">Spot activo</div>
+      <div class="spot-value" id="spot-id">basurero_republica_01</div>
+    </div>
+    <div class="spot-divider"></div>
+    <div>
+      <div class="spot-label">Ubicación</div>
+      <div class="spot-value" id="spot-ubicacion">Av. República esq. San Francisco</div>
+    </div>
+    <div class="spot-divider"></div>
+    <div>
+      <div class="spot-label">Intervalo de captura</div>
+      <div class="spot-value">20 min</div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <p class="section-label">resumen del día</p>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Capturas hoy</div>
+      <div class="stat-value accent" id="stat-capturas">—</div>
+      <div class="stat-sub">fotos registradas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Interacciones</div>
+      <div class="stat-value" id="stat-basura-fuera">—</div>
+      <div class="stat-sub">personas usando el basurero</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Hora de llenado</div>
+      <div class="stat-value warning" id="stat-llenado">—</div>
+      <div class="stat-sub">personas que pasaron</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Tasa de uso</div>
+      <div class="stat-value" id="stat-vaciado">—</div>
+      <div class="stat-sub">% interacción vs tránsito</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <p class="section-label">análisis visual</p>
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Capturas por hora</div>
+      <div class="bar-chart" id="bar-chart">
+        <div class="loading"><div class="spinner"></div> cargando datos...</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Distribución de clasificaciones</div>
+      <div class="donut-wrap" id="donut-wrap">
+        <div class="loading"><div class="spinner"></div> cargando datos...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA -->
+  <p class="section-label">últimas capturas</p>
+  <div class="table-wrap">
+    <div class="table-header">
+      <div class="th">fecha</div>
+      <div class="th">hora</div>
+      <div class="th">spot</div>
+      <div class="th">clasificación</div>
+      <div class="th">foto</div>
+      <div class="th">estado</div>
+    </div>
+    <div class="table-body" id="tabla-body">
+      <div class="loading"><div class="spinner"></div> cargando capturas...</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>Sistema de monitoreo urbano · Barrio República · Santiago, Chile</p>
+  <p>Proyecto académico · Diseño Industrial UDP</p>
+</footer>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCBCOciaruaqW7a5Z7AKd7jTNOHGsog_Ts",
+    authDomain: "basura-local-7aaaf.firebaseapp.com",
+    projectId: "basura-local-7aaaf",
+    storageBucket: "basura-local-7aaaf.firebasestorage.app",
+    messagingSenderId: "969878813839",
+    appId: "1:969878813839:web:54ca6ef319b3cd2e2704fa",
+    measurementId: "G-JMY7H5TG1R"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  function getClasificacion(d) {
+    return d['Clasificación'] || d['clasificacion'] || d['Clasificacion'] || '';
+  }
+
+  function getSpotId(d) {
+    return d['Spot _id'] || d['spot_id'] || d['Spot_id'] || '—';
+  }
+
+  function getUbicacion(d) {
+    return d['ubicación'] || d['ubicacion'] || '—';
+  }
+
+  function getHora(d) {
+    const h = d['hora'] || '';
+    return h.replace(' hrs', '').substring(0, 5);
+  }
+
+  function getBadge(clasificacion) {
+    if (!clasificacion) return '<span class="clasificacion-badge badge-sin-datos">sin datos</span>';
+    const c = clasificacion.toLowerCase();
+    if (c.includes('basura') || c.includes('aglomerado')) return `<span class="clasificacion-badge badge-basura-fuera">basura fuera</span>`;
+    if (c.includes('llenado')) return `<span class="clasificacion-badge badge-llenado">hora llenado</span>`;
+    if (c.includes('vaciado')) return `<span class="clasificacion-badge badge-vaciado">hora vaciado</span>`;
+    return `<span class="clasificacion-badge badge-sin-datos">${clasificacion}</span>`;
+  }
+
+  function updateStats(docs) {
+    const basuraFuera = docs.filter(d => { const c = getClasificacion(d).toLowerCase(); return c.includes('basura') || c.includes('aglomerado'); }).length;
+    const llenado    = docs.filter(d => getClasificacion(d).toLowerCase().includes('llenado')).length;
+    const vaciado    = docs.filter(d => getClasificacion(d).toLowerCase().includes('vaciado')).length;
+    const total      = docs.length || 1;
+
+    // Interacciones = fotos con clasificación definida (no "Pendiente")
+    const interacciones = docs.filter(d => {
+      const c = getClasificacion(d).toLowerCase();
+      return c && c !== 'pendiente';
+    }).length;
+
+    // Tasa = interacciones / total capturas × 100
+    const tasa = Math.round((interacciones / total) * 100);
+
+    document.getElementById('stat-capturas').textContent     = docs.length;
+    document.getElementById('stat-basura-fuera').textContent = interacciones;
+    document.getElementById('stat-llenado').textContent      = llenado;
+    document.getElementById('stat-vaciado').textContent      = tasa + '%';
+
+    const tasaEl = document.getElementById('stat-vaciado');
+    if (tasa >= 50) tasaEl.className = 'stat-value accent';
+    else if (tasa >= 25) tasaEl.className = 'stat-value warning';
+    else tasaEl.className = 'stat-value danger';
+  }
+
+  function updateBarChart(docs) {
+    const horas = {};
+    for (let h = 8; h <= 20; h++) horas[h] = 0;
+
+    docs.forEach(d => {
+      if (d.hora) {
+        const h = parseInt(d.hora.split(':')[0]);
+        if (horas[h] !== undefined) horas[h]++;
+      }
+    });
+
+    const maxVal = Math.max(...Object.values(horas), 1);
+    const chart = document.getElementById('bar-chart');
+    chart.innerHTML = '';
+
+    Object.entries(horas).forEach(([h, val]) => {
+      const pct = (val / maxVal) * 100;
+      const group = document.createElement('div');
+      group.className = 'bar-group';
+      group.innerHTML = `
+        <div class="bar" style="height:${Math.max(pct, 3)}%" title="${val} capturas"></div>
+        <div class="bar-label">${h}h</div>
+      `;
+      chart.appendChild(group);
+    });
+  }
+
+  function updateDonut(docs) {
+    const basuraFuera = docs.filter(d => { const c = getClasificacion(d).toLowerCase(); return c.includes('basura') || c.includes('aglomerado'); }).length;
+    const llenado = docs.filter(d => getClasificacion(d).toLowerCase().includes('llenado')).length;
+    const vaciado = docs.filter(d => getClasificacion(d).toLowerCase().includes('vaciado')).length;
+    
+    
+    const total = docs.length || 1;
+
+    const pI = Math.round((basuraFuera / total) * 100);
+    const pT = Math.round((llenado / total) * 100);
+    const pS = 100 - pI - pT; // vaciado
+
+    const r = 54;
+    const circ = 2 * Math.PI * r;
+    const dI = (pI / 100) * circ;
+    const dT = (pT / 100) * circ;
+    const dS = (pS / 100) * circ;
+
+    const wrap = document.getElementById('donut-wrap');
+    wrap.innerHTML = `
+      <svg class="donut-svg" width="130" height="130" viewBox="0 0 130 130">
+        <circle cx="65" cy="65" r="${r}" fill="none" stroke="#1a1a1a" stroke-width="16"/>
+        <circle cx="65" cy="65" r="${r}" fill="none" stroke="#c8f542" stroke-width="16"
+          stroke-dasharray="${dI} ${circ - dI}" stroke-dashoffset="${circ * 0.25}" stroke-linecap="butt"/>
+        <circle cx="65" cy="65" r="${r}" fill="none" stroke="#f5a623" stroke-width="16"
+          stroke-dasharray="${dT} ${circ - dT}" stroke-dashoffset="${circ * 0.25 - dI}" stroke-linecap="butt"/>
+        <text x="65" y="60" text-anchor="middle" fill="#f0f0f0" font-family="Space Mono" font-size="18" font-weight="700">${pI}%</text>
+        <text x="65" y="76" text-anchor="middle" fill="#888" font-family="DM Sans" font-size="10">basura fuera</text>
+      </svg>
+      <div class="donut-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#c8f542"></div>
+          <div class="legend-label">Basura fuera del depósito</div>
+          <div class="legend-pct">${pI}%</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#f5a623"></div>
+          <div class="legend-label">Hora de llenado</div>
+          <div class="legend-pct">${pT}%</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#333"></div>
+          <div class="legend-label">Hora de vaciado</div>
+          <div class="legend-pct">${pS}%</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateTabla(docs) {
+    const tbody = document.getElementById('tabla-body');
+    if (docs.length === 0) {
+      tbody.innerHTML = '<div class="empty">// sin capturas registradas aún</div>';
+      return;
+    }
+
+    tbody.innerHTML = docs.slice(0, 20).map(d => {
+      const url = d.foto_url || '';
+      const fotoHtml = url
+        ? `<img class="foto-thumb" src="${url}" alt="captura" onclick="window.open('${url}','_blank')">`
+        : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">—</span>`;
+      return `
+      <div class="table-row">
+        <div class="td highlight">${d.fecha || '—'}</div>
+        <div class="td">${getHora(d)}</div>
+        <div class="td">${getSpotId(d)}</div>
+        <div class="td">${getBadge(getClasificacion(d))}</div>
+        <div class="td">${fotoHtml}</div>
+        <div class="td">${d.subido || d.Subido ? '✓ subido' : '⏳ pendiente'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateLastUpdate() {
+    const now = new Date();
+    document.getElementById('last-update').textContent =
+      `actualizado ${now.toLocaleTimeString('es-CL')}`;
+  }
+
+  // ESCUCHA EN TIEMPO REAL
+  const q = query(collection(db, 'capturas'), orderBy('hora', 'desc'), limit(50));
+
+  onSnapshot(q, (snapshot) => {
+    const docs = snapshot.docs.map(d => d.data());
+
+    document.getElementById('status-badge').textContent = '● EN VIVO';
+    document.getElementById('status-badge').style.color = '#c8f542';
+    document.getElementById('status-badge').style.borderColor = '#c8f542';
+
+    updateStats(docs);
+    updateBarChart(docs);
+    updateDonut(docs);
+    updateTabla(docs);
+    updateLastUpdate();
+
+    if (docs.length > 0 && docs[0].spot_id) {
+      document.getElementById('spot-id').textContent = docs[0].spot_id;
+    }
+    if (docs.length > 0 && docs[0].ubicacion) {
+      document.getElementById('spot-ubicacion').textContent = docs[0].ubicacion;
+    }
+
+  }, (error) => {
+    console.error('Error Firestore:', error);
+    document.getElementById('status-badge').textContent = '● ERROR';
+    document.getElementById('status-badge').style.color = '#ff4444';
+    document.getElementById('status-badge').style.borderColor = '#ff4444';
+  });
+</script>
+
+</body>
+</html>
