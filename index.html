@@ -730,7 +730,7 @@
   }
 
   // ESCUCHA EN TIEMPO REAL
-  const q = query(collection(db, 'capturas'), orderBy('hora', 'desc'), limit(50));
+  const q = query(collection(db, 'capturas'), orderBy('hora', 'desc'), limit(100));
 
   onSnapshot(q, (snapshot) => {
     const docs = snapshot.docs.map(d => d.data());
