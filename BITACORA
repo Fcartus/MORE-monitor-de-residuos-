@@ -1,0 +1,442 @@
+// ============================================================
+// Monitor Barrio República — Firmware ESP32-CAM v4
+// Con DS3231 RTC, SD offline, WiFi, Cloudinary, Firestore
+// ============================================================
+
+#include "esp_camera.h"
+#include <WiFi.h>
+#include <WiFiMulti.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <Wire.h>
+#include <RTClib.h>
+#include "FS.h"
+#include "SD_MMC.h"
+
+// ── PINES AI-THINKER ────────────────────────────────────────
+#define PWDN_GPIO_NUM     32
+#define RESET_GPIO_NUM    -1
+#define XCLK_GPIO_NUM      0
+#define SIOD_GPIO_NUM     26
+#define SIOC_GPIO_NUM     27
+#define Y9_GPIO_NUM       35
+#define Y8_GPIO_NUM       34
+#define Y7_GPIO_NUM       39
+#define Y6_GPIO_NUM       36
+#define Y5_GPIO_NUM       21
+#define Y4_GPIO_NUM       19
+#define Y3_GPIO_NUM       18
+#define Y2_GPIO_NUM        5
+#define VSYNC_GPIO_NUM    25
+#define HREF_GPIO_NUM     23
+#define PCLK_GPIO_NUM     22
+#define LED_PIN            4
+
+// ── PINES DS3231 ─────────────────────────────────────────────
+// SDA → GPIO14  |  SCL → GPIO15
+#define RTC_SDA 14
+#define RTC_SCL 15
+
+// ── REDES WIFI ───────────────────────────────────────────────
+const char* WIFI_SSID_1 = "Caja";
+const char* WIFI_PASS_1 = "123456789";
+// const char* WIFI_SSID_2 = "RedIntegrante2";
+// const char* WIFI_PASS_2 = "password2";
+
+// ── CLOUDINARY ───────────────────────────────────────────────
+const char* CLOUDINARY_UPLOAD_URL    = "https://api.cloudinary.com/v1_1/daga7qokt/image/upload";
+const char* CLOUDINARY_UPLOAD_PRESET = "Monitor_republica";
+
+// ── FIRESTORE ────────────────────────────────────────────────
+const char* FIREBASE_PROJECT_ID = "basura-local-7aaaf";
+const char* FIREBASE_API_KEY    = "AIzaSyCBCOciaruaqW7a5Z7AKd7jTNOHGsog_Ts";
+
+// ── DISPOSITIVO ──────────────────────────────────────────────
+const char* SPOT_ID   = "basurero_republica_01";
+const char* UBICACION = "Av. República esq. San Francisco";
+
+// ── TIEMPOS ──────────────────────────────────────────────────
+#define SLEEP_MINUTES    20
+#define uS_TO_S_FACTOR   1000000ULL
+
+// ── NTP (para sincronizar RTC cuando hay WiFi) ───────────────
+const char* NTP_SERVER = "pool.ntp.org";
+const long  GMT_OFFSET = -4 * 3600;  // Chile UTC-4 verano
+const int   DST_OFFSET = 0;
+
+// ── GLOBALES ─────────────────────────────────────────────────
+WiFiMulti wifiMulti;
+RTC_DS3231 rtc;
+bool sdDisponible  = false;
+bool rtcDisponible = false;
+
+// ════════════════════════════════════════════════════════════
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n[BOOT] Monitor Barrio República v4 (RTC + SD + WiFi)");
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+
+  // ── INIT RTC DS3231 ─────────────────────────────────────
+  Wire.begin(RTC_SDA, RTC_SCL);
+  if (rtc.begin()) {
+    rtcDisponible = true;
+    if (rtc.lostPower()) {
+      Serial.println("[RTC] Perdió energía — hora no confiable, se sincronizará con NTP");
+    } else {
+      DateTime now = rtc.now();
+      Serial.printf("[RTC] OK — %04d-%02d-%02d %02d:%02d:%02d\n",
+        now.year(), now.month(), now.day(),
+        now.hour(), now.minute(), now.second());
+    }
+  } else {
+    Serial.println("[RTC] No detectado — usando NTP");
+  }
+
+  // ── INIT SD ─────────────────────────────────────────────
+  digitalWrite(LED_PIN, LOW);
+  if (SD_MMC.begin("/sdcard", true)) {
+    uint8_t cardType = SD_MMC.cardType();
+    if (cardType != CARD_NONE) {
+      sdDisponible = true;
+      Serial.printf("[SD] OK — espacio libre: %llu MB\n",
+        (SD_MMC.totalBytes() - SD_MMC.usedBytes()) / (1024 * 1024));
+    } else {
+      Serial.println("[SD] Tarjeta no detectada");
+    }
+  } else {
+    Serial.println("[SD] Error al montar — continuando sin SD");
+  }
+  digitalWrite(LED_PIN, HIGH);
+
+  // ── INIT CÁMARA ─────────────────────────────────────────
+  camera_config_t config;
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer   = LEDC_TIMER_0;
+  config.pin_d0 = Y2_GPIO_NUM; config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM; config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM; config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM; config.pin_d7 = Y9_GPIO_NUM;
+  config.pin_xclk     = XCLK_GPIO_NUM; config.pin_pclk  = PCLK_GPIO_NUM;
+  config.pin_vsync    = VSYNC_GPIO_NUM; config.pin_href  = HREF_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;  config.pin_sccb_scl = SIOC_GPIO_NUM;
+  config.pin_pwdn     = PWDN_GPIO_NUM;  config.pin_reset = RESET_GPIO_NUM;
+  config.xclk_freq_hz = 20000000;
+  config.pixel_format = PIXFORMAT_JPEG;
+  config.frame_size   = FRAMESIZE_VGA;
+  config.jpeg_quality = 12;
+  config.fb_count     = 1;
+
+  if (esp_camera_init(&config) != ESP_OK) {
+    Serial.println("[CAM] Error init — reiniciando");
+    delay(1000); ESP.restart();
+  }
+
+  // Descarte primer frame (el primero siempre sale oscuro)
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (fb) esp_camera_fb_return(fb);
+  delay(300);
+
+  // Captura real
+  fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("[CAM] Error captura — durmiendo");
+    dormirESP(); return;
+  }
+  Serial.printf("[CAM] Foto capturada: %d bytes\n", fb->len);
+
+  // ── WIFI ────────────────────────────────────────────────
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+  wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
+
+  Serial.print("[WiFi] Buscando red");
+  int intento = 0;
+  while (wifiMulti.run() != WL_CONNECTED && intento < 15) {
+    delay(500); Serial.print("."); intento++;
+  }
+
+  // Variables de hora
+  char fecha[11], hora[9], filename[30];
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("\n[WiFi] Conectado: %s\n", WiFi.SSID().c_str());
+
+    // Sincronizar RTC con NTP si hay WiFi
+    configTime(GMT_OFFSET, DST_OFFSET, NTP_SERVER);
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 5000)) {
+      if (rtcDisponible) {
+        // Actualizar RTC con hora NTP
+        rtc.adjust(DateTime(
+          timeinfo.tm_year + 1900,
+          timeinfo.tm_mon + 1,
+          timeinfo.tm_mday,
+          timeinfo.tm_hour,
+          timeinfo.tm_min,
+          timeinfo.tm_sec
+        ));
+        Serial.println("[RTC] Sincronizado con NTP");
+      }
+      strftime(fecha,    sizeof(fecha),    "%Y-%m-%d",          &timeinfo);
+      strftime(hora,     sizeof(hora),     "%H:%M:%S",          &timeinfo);
+      strftime(filename, sizeof(filename), "%Y-%m-%d_%H-%M-%S", &timeinfo);
+      Serial.printf("[NTP] %s %s\n", fecha, hora);
+    } else {
+      obtenerHoraRTC(fecha, hora, filename);
+    }
+
+    // Subir foto actual a Cloudinary
+    String fotoUrl = subirCloudinary(fb, filename);
+    esp_camera_fb_return(fb);
+
+    if (fotoUrl.length() > 0) {
+      Serial.println("[Cloudinary] OK: " + fotoUrl);
+      bool ok = guardarFirestore(fecha, hora, fotoUrl);
+      Serial.println(ok ? "[Firestore] Guardado OK" : "[Firestore] Error");
+    } else {
+      Serial.println("[Cloudinary] Fallo — guardando en SD como pendiente");
+      camera_fb_t* fb2 = esp_camera_fb_get();
+      if (fb2 && sdDisponible) {
+        guardarEnSD(fb2, filename, fecha, hora);
+        esp_camera_fb_return(fb2);
+      }
+    }
+
+    // Subir pendientes de SD
+    if (sdDisponible) {
+      subirPendientesSD();
+    }
+
+  } else {
+    // Sin WiFi — guardar en SD con hora del RTC
+    Serial.println("\n[WiFi] Sin red — guardando en SD");
+    obtenerHoraRTC(fecha, hora, filename);
+
+    if (sdDisponible) {
+      guardarEnSD(fb, filename, fecha, hora);
+    } else {
+      Serial.println("[SD] No disponible — foto perdida");
+    }
+    esp_camera_fb_return(fb);
+  }
+
+  dormirESP();
+}
+
+void loop() {}
+
+// ════════════════════════════════════════════════════════════
+// OBTENER HORA DESDE RTC DS3231
+// ════════════════════════════════════════════════════════════
+void obtenerHoraRTC(char* fecha, char* hora, char* filename) {
+  if (rtcDisponible) {
+    DateTime now = rtc.now();
+    snprintf(fecha,    11, "%04d-%02d-%02d",
+      now.year(), now.month(), now.day());
+    snprintf(hora,      9, "%02d:%02d:%02d",
+      now.hour(), now.minute(), now.second());
+    snprintf(filename, 30, "%04d-%02d-%02d_%02d-%02d-%02d",
+      now.year(), now.month(), now.day(),
+      now.hour(), now.minute(), now.second());
+    Serial.printf("[RTC] Hora: %s %s\n", fecha, hora);
+  } else {
+    strcpy(fecha,    "1970-01-01");
+    strcpy(hora,     "00:00:00");
+    strcpy(filename, "sin_hora");
+    Serial.println("[RTC] No disponible — usando fecha por defecto");
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// GUARDAR EN SD
+// ════════════════════════════════════════════════════════════
+void guardarEnSD(camera_fb_t* fb, const char* filename,
+                 const char* fecha, const char* hora) {
+  String pathJpg = String("/pending_") + filename + ".jpg";
+  String pathTxt = String("/pending_") + filename + ".txt";
+
+  File f = SD_MMC.open(pathJpg.c_str(), FILE_WRITE);
+  if (f) {
+    f.write(fb->buf, fb->len);
+    f.close();
+    Serial.println("[SD] Foto guardada: " + pathJpg);
+  } else {
+    Serial.println("[SD] Error escribiendo JPG");
+    return;
+  }
+
+  File t = SD_MMC.open(pathTxt.c_str(), FILE_WRITE);
+  if (t) {
+    t.printf("fecha=%s\nhora=%s\nspot_id=%s\nubicacion=%s\n",
+             fecha, hora, SPOT_ID, UBICACION);
+    t.close();
+    Serial.println("[SD] Metadatos guardados: " + pathTxt);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// SUBIR PENDIENTES DE SD
+// ════════════════════════════════════════════════════════════
+void subirPendientesSD() {
+  File root = SD_MMC.open("/");
+  if (!root || !root.isDirectory()) return;
+
+  Serial.println("[SD] Revisando pendientes...");
+  int subidos = 0;
+
+  File entry = root.openNextFile();
+  while (entry) {
+    String nombre = entry.name();
+
+    if (!entry.isDirectory() && nombre.startsWith("pending_") && nombre.endsWith(".jpg")) {
+      Serial.println("[SD] Pendiente encontrado: " + nombre);
+
+      size_t fileSize = entry.size();
+      uint8_t* buf = (uint8_t*)malloc(fileSize);
+      if (!buf) {
+        Serial.println("[SD] Sin RAM para cargar archivo");
+        entry.close();
+        entry = root.openNextFile();
+        continue;
+      }
+      entry.read(buf, fileSize);
+      entry.close();
+
+      String fn = nombre.substring(8, nombre.length() - 4);
+
+      String pathTxt = "/" + nombre.substring(0, nombre.length() - 4) + ".txt";
+      String fechaTxt = "1970-01-01", horaTxt = "00:00:00";
+      File txt = SD_MMC.open(pathTxt.c_str());
+      if (txt) {
+        while (txt.available()) {
+          String linea = txt.readStringUntil('\n');
+          if (linea.startsWith("fecha=")) fechaTxt = linea.substring(6);
+          if (linea.startsWith("hora="))  horaTxt  = linea.substring(5);
+        }
+        txt.close();
+        fechaTxt.trim(); horaTxt.trim();
+      }
+
+      String fotoUrl = subirBufferCloudinary(buf, fileSize, fn.c_str());
+      free(buf);
+
+      if (fotoUrl.length() > 0) {
+        guardarFirestore(fechaTxt.c_str(), horaTxt.c_str(), fotoUrl);
+        SD_MMC.remove(("/" + nombre).c_str());
+        SD_MMC.remove(pathTxt.c_str());
+        subidos++;
+        Serial.println("[SD] Subido y borrado: " + nombre);
+      } else {
+        Serial.println("[SD] Fallo — se reintenta próximo ciclo");
+      }
+    } else {
+      entry.close();
+    }
+    entry = root.openNextFile();
+  }
+  root.close();
+  Serial.printf("[SD] Pendientes subidos: %d\n", subidos);
+}
+
+// ════════════════════════════════════════════════════════════
+// SUBIR A CLOUDINARY
+// ════════════════════════════════════════════════════════════
+String subirCloudinary(camera_fb_t* fb, const char* filename) {
+  return subirBufferCloudinary(fb->buf, fb->len, filename);
+}
+
+String subirBufferCloudinary(uint8_t* imgBuf, size_t imgLen, const char* filename) {
+  HTTPClient http;
+  http.begin(CLOUDINARY_UPLOAD_URL);
+  http.setTimeout(30000);
+
+  String boundary = "----ESP32Boundary";
+  String bodyStart =
+    "--" + boundary + "\r\n"
+    "Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n" +
+    String(CLOUDINARY_UPLOAD_PRESET) + "\r\n"
+    "--" + boundary + "\r\n"
+    "Content-Disposition: form-data; name=\"public_id\"\r\n\r\n" +
+    String(SPOT_ID) + "_" + String(filename) + "\r\n"
+    "--" + boundary + "\r\n"
+    "Content-Disposition: form-data; name=\"file\"; filename=\"foto.jpg\"\r\n"
+    "Content-Type: image/jpeg\r\n\r\n";
+  String bodyEnd = "\r\n--" + boundary + "--\r\n";
+
+  int contentLength = bodyStart.length() + imgLen + bodyEnd.length();
+  http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+  http.addHeader("Content-Length", String(contentLength));
+
+  uint8_t* buf = (uint8_t*)malloc(contentLength);
+  if (!buf) { http.end(); return ""; }
+
+  int pos = 0;
+  memcpy(buf + pos, bodyStart.c_str(), bodyStart.length()); pos += bodyStart.length();
+  memcpy(buf + pos, imgBuf, imgLen);                        pos += imgLen;
+  memcpy(buf + pos, bodyEnd.c_str(), bodyEnd.length());
+
+  int httpCode = http.POST(buf, contentLength);
+  free(buf);
+
+  String fotoUrl = "";
+  if (httpCode == 200) {
+    DynamicJsonDocument doc(2048);
+    deserializeJson(doc, http.getString());
+    fotoUrl = doc["secure_url"].as<String>();
+  } else {
+    Serial.printf("[Cloudinary] HTTP %d\n", httpCode);
+  }
+  http.end();
+  return fotoUrl;
+}
+
+// ════════════════════════════════════════════════════════════
+// GUARDAR EN FIRESTORE
+// ════════════════════════════════════════════════════════════
+bool guardarFirestore(const char* fecha, const char* hora, String fotoUrl) {
+  HTTPClient http;
+  String url = String("https://firestore.googleapis.com/v1/projects/") +
+               FIREBASE_PROJECT_ID +
+               "/databases/(default)/documents/capturas?key=" +
+               FIREBASE_API_KEY;
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(15000);
+
+  String horaFmt = String(hora) + " hrs";
+  String body = "{\"fields\":{"
+    "\"fecha\":{\"stringValue\":\"" + String(fecha) + "\"},"
+    "\"hora\":{\"stringValue\":\"" + horaFmt + "\"},"
+    "\"Spot _id\":{\"stringValue\":\"" + String(SPOT_ID) + "\"},"
+    "\"ubicación\":{\"stringValue\":\"" + String(UBICACION) + "\"},"
+    "\"foto_url\":{\"stringValue\":\"" + fotoUrl + "\"},"
+    "\"Clasificación\":{\"stringValue\":\"Pendiente\"},"
+    "\"Subido\":{\"booleanValue\":true}"
+  "}}";
+
+  int httpCode = http.POST(body);
+  http.end();
+  return (httpCode == 200 || httpCode == 201);
+}
+
+// ════════════════════════════════════════════════════════════
+// DEEP SLEEP — 20 minutos
+// ════════════════════════════════════════════════════════════
+void dormirESP() {
+  digitalWrite(LED_PIN, LOW);
+  Serial.printf("[SLEEP] Durmiendo %d min...\n", SLEEP_MINUTES);
+  delay(200);
+  esp_sleep_enable_timer_wakeup(SLEEP_MINUTES * 60ULL * uS_TO_S_FACTOR);
+  esp_deep_sleep_start();
+}
+
+
+
+CODIGO GITHUB
+https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
+
