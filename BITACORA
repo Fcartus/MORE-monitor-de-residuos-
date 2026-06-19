@@ -436,12 +436,28 @@ void dormirESP() {
 
 
 
+
+
+--------------------------------------------------------
+
+
+
 CODIGO GITHUB
 https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
 https://www.prolific.com.tw/US/ShowProduct.aspx?p_id=225&pcid=41
 
 
+
+----------------------------------------------------------
+
+
+
+
+
+
+
+PRIMER CODIGO BASE /
    // ============================================================
 // Monitor Barrio República — Firmware ESP32-CAM (sin RTC)
 // Usa NTP (hora de internet) en lugar del DS3231
@@ -694,7 +710,28 @@ void dormirESP() {
 }
 
 
-CODIGO BASICO 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CODIGO BASICO / PRUEBA ESTADO DE CAMARA FUNCIONAMIENTO
 
 
 #define LED_GPIO_NUM 4
