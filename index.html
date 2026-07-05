@@ -14,7 +14,11 @@
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@500;700&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
@@ -23,8 +27,8 @@ body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;m
 .screen{background:#111;border-radius:24px;overflow:hidden;height:640px;display:flex;flex-direction:column;position:relative}
 .statusbar{background:#111;padding:10px 18px 4px;display:flex;justify-content:space-between;flex-shrink:0}
 .statusbar span{color:#fff;font-size:11px;font-weight:500}
-.page{display:none;flex:1;flex-direction:column;overflow:hidden}
-.page.active{display:flex}
+.page{position:absolute;inset:0;flex-direction:column;overflow:hidden;opacity:0;transform:translateX(18px);transition:opacity .22s ease, transform .22s ease;pointer-events:none;display:flex}
+.page.active{opacity:1;transform:translateX(0);pointer-events:auto;z-index:2}
 .header{background:#111;padding:10px 16px 8px;border-bottom:1px solid #222;flex-shrink:0}
 .header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
 .header-top2{display:flex;align-items:center;gap:10px;margin-bottom:7px}
@@ -49,32 +53,50 @@ body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;m
 .nav-item i{font-size:19px;color:#555}
 .nav-item span{font-size:9px;color:#555}
 .nav-item.active i,.nav-item.active span{color:var(--naranja)}
-.mapa-wrap{flex:1;position:relative;overflow:hidden}
-.popup{display:none;position:absolute;background:#111;border:1px solid var(--naranja);border-radius:12px;padding:10px 12px;width:160px;z-index:30}
-.popup.show{display:block}
-.pp-name{color:#fff;font-size:12px;font-weight:500;margin-bottom:5px}
-.pp-row{display:flex;justify-content:space-between;margin-bottom:3px;gap:8px}
-.pp-label{color:#666;font-size:10px}
-.pp-val{color:#ccc;font-size:10px;text-align:right}
-.pp-btn{width:100%;margin-top:7px;background:var(--naranja);color:#fff;border:none;border-radius:8px;padding:5px;font-size:11px;cursor:pointer}
-.pp-close{position:absolute;top:6px;right:8px;color:#555;font-size:13px;cursor:pointer;background:none;border:none}
-.panel-bottom{background:#111;border-top:1px solid #222;flex-shrink:0}
-.spots-row{display:flex;gap:8px;padding:8px 14px;overflow-x:auto}
-.spots-row::-webkit-scrollbar{display:none}
-.spot-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:8px 10px;min-width:112px;cursor:pointer;flex-shrink:0;transition:border-color 0.2s}
+.mapa-wrap{height:200px;flex-shrink:0;position:relative;overflow:hidden;border-bottom:1px solid #222}
+#mapaLeaflet{width:100%;height:100%;background:#1a1a1a}
+.leaflet-popup-content-wrapper{background:#111;color:#eee;border:1px solid var(--naranja);border-radius:10px}
+.leaflet-popup-tip{background:#111;border:1px solid var(--naranja)}
+.leaflet-popup-content{margin:9px 11px;font-size:11px;line-height:1.5}
+.leaflet-popup-content b{color:#fff}
+.leaflet-container a.leaflet-popup-close-button{color:#888}
+.leaflet-control-attribution{font-size:8px !important;background:rgba(17,17,17,0.7) !important;color:#666 !important}
+.leaflet-control-attribution a{color:#888 !important}
+.leaflet-control-zoom a{background:#111 !important;color:#ccc !important;border-color:#333 !important}
+.panel-bottom{background:#111;flex:1;overflow-y:auto;min-height:0}
+.panel-bottom::-webkit-scrollbar{width:3px}
+.panel-bottom::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+.panel-title{color:#666;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;padding:10px 14px 4px}
+.filtro-estado{display:flex;gap:7px;padding:2px 14px 8px}
+.chip-filtro{flex:1;border:1px solid #2a2a2a;background:#1a1a1a;border-radius:9px;padding:7px 0;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:5px}
+.chip-filtro .dot{width:7px;height:7px;border-radius:50%}
+.chip-filtro.lleno .dot{background:#e74c3c}
+.chip-filtro.vacio .dot{background:#2ecc71}
+.chip-filtro.lleno{color:#e88}
+.chip-filtro.vacio{color:#8d8}
+.chip-filtro.lleno.on{background:#3a1212;border-color:#e74c3c;color:#fff}
+.chip-filtro.vacio.on{background:#123a12;border-color:#2ecc71;color:#fff}
+.spots-list{display:flex;flex-direction:column;padding:0 14px 14px;gap:7px}
+.spot-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:10px 12px;cursor:pointer;transition:border-color 0.2s, transform 0.15s;display:flex;align-items:center;gap:10px}
+.spot-card:active{transform:scale(0.98)}
 .spot-card.sel,.spot-card:hover{border-color:var(--naranja)}
 .spot-card.placeholder{opacity:0.45;cursor:default}
 .spot-card.placeholder:hover{border-color:#2a2a2a}
+.spot-card.placeholder:active{transform:none}
+.sc-pin{width:32px;height:32px;border-radius:9px;background:#241a10;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sc-pin i{font-size:16px;color:var(--naranja)}
+.sc-body{flex:1;min-width:0}
 .sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px}
-.sc-name{color:#fff;font-size:11px;font-weight:500}
+.sc-name{color:#fff;font-size:12px;font-weight:500}
 .sc-badge{font-size:9px;padding:2px 6px;border-radius:8px;font-weight:500;white-space:nowrap}
 .bl{background:#3a1212;color:#e74c3c}
 .bv{background:#123a12;color:#2ecc71}
 .ba{background:#3a3012;color:#f39c12}
 .bg{background:#2a2a2a;color:#888}
-.sc-hora{color:#666;font-size:9px;margin-bottom:4px}
+.sc-hora{color:#666;font-size:10px;margin-bottom:5px}
 .sc-bar-bg{height:3px;background:#2a2a2a;border-radius:2px}
 .sc-bar-fill{height:100%;border-radius:2px}
+.sc-chevron{color:#444;font-size:15px;flex-shrink:0}
 .sec-title{color:#666;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 6px;display:flex;justify-content:space-between;align-items:center}
 .res3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
 .res-c{background:#1a1a1a;border-radius:10px;padding:8px;text-align:center}
@@ -103,6 +125,54 @@ body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;m
 .empty-state{text-align:center;padding:30px 14px;color:#555}
 .empty-state i{font-size:28px;color:#333;margin-bottom:8px;display:block}
 .empty-state p{font-size:11px;line-height:1.5}
+
+.folder-card{background:#1a1a1a;border:1px solid #222;border-radius:12px;margin-bottom:8px;overflow:hidden}
+.header-brand{position:relative;padding:2px 0 4px;text-align:center}
+.brand-more{font-family:'Jost',sans-serif;font-weight:700;font-size:32px;color:#fff;letter-spacing:0.5px;line-height:1.05}
+.lens-icon{width:0.62em;height:0.62em;vertical-align:-0.09em;margin:0 0.02em}
+.zona-selector{display:inline-flex;align-items:center;gap:4px;color:#999;font-size:11px;cursor:pointer;margin-top:1px}
+.zona-selector i.ti-map-pin{font-size:12px;color:var(--naranja)}
+.zona-selector i.ti-chevron-down{font-size:11px;color:#666}
+.header-brand .badge-online,.header-brand .badge-offline{position:absolute;top:2px;right:0}
+.zona-sheet{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:150;align-items:flex-end;justify-content:center;padding:0}
+.zona-sheet.show{display:flex}
+.zona-sheet-inner{background:#161616;width:100%;max-width:340px;border-radius:18px 18px 0 0;padding:16px 14px 24px;animation:slideUpZona .22s ease}
+@keyframes slideUpZona{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+.zona-sheet-title{color:#fff;font-size:13px;font-weight:600;margin-bottom:10px;text-align:center}
+.zona-item{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:10px;cursor:pointer}
+.zona-item:active{background:#1e1e1e}
+.zona-item.activa{background:#231a10;border:1px solid var(--naranja)}
+.zona-item .zicon{width:30px;height:30px;border-radius:9px;background:#241a10;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.zona-item .zicon i{color:var(--naranja);font-size:15px}
+.zona-item .zn{color:#fff;font-size:12.5px;font-weight:500;flex:1}
+.zona-item .zsub{color:#777;font-size:10px;margin-top:1px}
+.zona-item .ztag{font-size:9px;background:#2a2a2a;color:#888;padding:3px 8px;border-radius:8px;white-space:nowrap}
+.hist-folder{background:#1a1a1a;border:1px solid #222;border-radius:12px;margin-bottom:7px;overflow:hidden}
+.hist-folder .folder-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.hist-folder.open .folder-chevron{transform:rotate(90deg)}
+.hist-folder .folder-body-inner{padding:2px 12px 10px}
+.folder-head{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer}
+.folder-icon{width:30px;height:30px;border-radius:9px;background:#241a10;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.folder-icon i{color:var(--naranja);font-size:15px}
+.folder-bubble{flex:1;background:#222;border-radius:10px;padding:6px 10px;display:flex;align-items:baseline;gap:7px;min-width:0}
+.folder-bubble .fn{color:#fff;font-size:12px;font-weight:500;white-space:nowrap}
+.folder-bubble .fr{color:#888;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.folder-chevron{color:#555;font-size:13px;transition:transform .2s;flex-shrink:0}
+.folder-card.open .folder-chevron{transform:rotate(90deg)}
+.folder-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.folder-card.open .folder-body{max-height:340px}
+.folder-body-inner{padding:2px 12px 14px}
+.periodo-toggle{display:flex;justify-content:flex-end;gap:6px;margin:8px 0 12px}
+.periodo-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#888;font-size:10px;padding:4px 12px;border-radius:20px;cursor:pointer}
+.periodo-btn.on{background:var(--naranja);border-color:var(--naranja);color:#fff}
+.chart-barras{display:flex;align-items:flex-end;gap:3px;height:90px}
+.chart-barra-w{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end;height:100%}
+.chart-barra{width:100%;border-radius:3px 3px 0 0;min-height:3px;transition:height .25s ease}
+.chart-bh{font-size:8px;color:#555}
+.chart-empty{color:#555;font-size:10px;text-align:center;padding:24px 0}
+.chart-legend{display:flex;gap:14px;justify-content:center;margin-top:10px}
+.chart-legend span{font-size:9px;color:#888;display:flex;align-items:center;gap:4px}
+.chart-legend .dot{width:7px;height:7px;border-radius:50%}
 .cfg-card{background:#1a1a1a;border:1px solid #222;border-radius:12px;overflow:hidden;margin-bottom:8px}
 .cfg-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #1e1e1e}
 .cfg-item:last-child{border-bottom:none}
@@ -129,69 +199,26 @@ body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;m
 <!-- MAPA -->
 <div class="page active" id="page-mapa">
   <div class="header">
-    <div class="header-top">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="logo-dot"><i class="ti ti-map-pin"></i></div>
-        <div><div class="logo-text">Monitor República</div><div class="logo-sub">Metro República, Santiago</div></div>
-      </div>
+    <div class="header-brand">
       <div class="badge-online" id="liveBadge"><span class="pulse"></span>En vivo</div>
+      <div class="brand-more">M<svg class="lens-icon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="100" cy="100" r="80" fill="#0a0a0a"/><circle cx="72" cy="72" r="28" fill="#fff"/><circle cx="103" cy="103" r="13" fill="#0a0a0a"/></svg>Re</div>
+      <div class="zona-selector" onclick="abrirSelectorZona()">
+        <i class="ti ti-map-pin"></i>
+        <span id="zonaActualLabel">Barrio República</span>
+        <i class="ti ti-chevron-down"></i>
+      </div>
     </div>
   </div>
   <div class="mapa-wrap">
-    <svg width="100%" height="100%" viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg">
-      <rect width="300" height="260" fill="#e8e0d8"/>
-      <rect x="10" y="10" width="75" height="65" rx="2" fill="#d4ccc4"/>
-      <rect x="95" y="10" width="75" height="65" rx="2" fill="#d4ccc4"/>
-      <rect x="180" y="10" width="110" height="65" rx="2" fill="#d4ccc4"/>
-      <rect x="10" y="90" width="75" height="75" rx="2" fill="#d4ccc4"/>
-      <rect x="95" y="90" width="75" height="75" rx="2" fill="#d4ccc4"/>
-      <rect x="180" y="90" width="110" height="75" rx="2" fill="#d4ccc4"/>
-      <rect x="10" y="180" width="75" height="65" rx="2" fill="#d4ccc4"/>
-      <rect x="95" y="180" width="75" height="65" rx="2" fill="#d4ccc4"/>
-      <rect x="185" y="180" width="105" height="65" rx="2" fill="#c8ddb0"/>
-      <rect x="0" y="245" width="300" height="15" fill="#b8b0a8"/>
-      <text x="150" y="255" text-anchor="middle" font-size="7" fill="#888">Av. Alameda</text>
-      <rect x="0" y="0" width="11" height="260" fill="#c8c0b8"/>
-      <rect x="289" y="0" width="11" height="260" fill="#c8c0b8"/>
-      <rect x="0" y="78" width="300" height="10" fill="#ccc4bc"/>
-      <text x="60" y="86" font-size="6" fill="#999">Salvador Sanfuentes</text>
-      <rect x="0" y="168" width="300" height="10" fill="#ccc4bc"/>
-      <text x="30" y="176" font-size="6" fill="#999">Grajales</text>
-      <rect x="83" y="0" width="10" height="245" fill="#ccc4bc"/>
-      <rect x="168" y="0" width="10" height="245" fill="#ccc4bc"/>
-      <rect x="25" y="0" width="48" height="11" rx="3" fill="#cc0000"/>
-      <text x="49" y="9" text-anchor="middle" font-size="6" fill="white" font-weight="500">M República</text>
-      <!-- pin real -->
-      <g style="cursor:pointer" onclick="mostrarPopupReal(88,75)">
-        <circle cx="88" cy="75" r="11" fill="var(--naranja)" stroke="white" stroke-width="1.5"/>
-        <circle cx="88" cy="75" r="11" fill="none" stroke="#E8650A" stroke-width="2" opacity="0.5"><animate attributeName="r" values="11;18;11" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite"/></circle>
-        <text x="88" y="79" text-anchor="middle" font-size="8" fill="white" font-weight="500">RE</text>
-      </g>
-      <!-- placeholders futuros -->
-      <g style="cursor:pointer" onclick="mostrarPopupPlaceholder(45,128)" opacity="0.4">
-        <circle cx="45" cy="128" r="9" fill="#666" stroke="white" stroke-width="1.2"/>
-        <text x="45" y="132" text-anchor="middle" font-size="7" fill="white">?</text>
-      </g>
-      <g style="cursor:pointer" onclick="mostrarPopupPlaceholder(175,128)" opacity="0.4">
-        <circle cx="175" cy="128" r="9" fill="#666" stroke="white" stroke-width="1.2"/>
-        <text x="175" y="132" text-anchor="middle" font-size="7" fill="white">?</text>
-      </g>
-      <g style="cursor:pointer" onclick="mostrarPopupPlaceholder(130,210)" opacity="0.4">
-        <circle cx="130" cy="210" r="9" fill="#666" stroke="white" stroke-width="1.2"/>
-        <text x="130" y="214" text-anchor="middle" font-size="7" fill="white">?</text>
-      </g>
-    </svg>
-    <div class="popup" id="popup">
-      <button class="pp-close" onclick="cerrarPopup()"><i class="ti ti-x"></i></button>
-      <div class="pp-name" id="pp-name">Barrio República</div>
-      <div class="pp-row"><span class="pp-label">Capturas</span><span class="pp-val" id="pp-total">—</span></div>
-      <div class="pp-row"><span class="pp-label">Última captura</span><span class="pp-val" id="pp-hora">—</span></div>
-      <div class="pp-row"><span class="pp-label">Clasificación</span><span class="pp-val" id="pp-estado">—</span></div>
-      <button class="pp-btn" onclick="irStats()">Ver detalle completo →</button>
-    </div>
+    <div id="mapaLeaflet"></div>
   </div>
   <div class="panel-bottom">
-    <div class="spots-row" id="spotsRow"></div>
+    <div class="panel-title">Spots monitoreados</div>
+    <div class="filtro-estado">
+      <button class="chip-filtro lleno" id="filtroLleno" onclick="filtrarEstado('lleno')"><span class="dot"></span>Lleno</button>
+      <button class="chip-filtro vacio" id="filtroVacio" onclick="filtrarEstado('vacio')"><span class="dot"></span>Vacío</button>
+    </div>
+    <div class="spots-list" id="spotsList"></div>
   </div>
   <div class="navbar">
     <div class="nav-item active" onclick="irPagina('mapa')"><i class="ti ti-map"></i><span>Mapa</span></div>
@@ -227,21 +254,8 @@ body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;m
     </div>
   </div>
   <div class="scroll">
-    <div class="sec-title">Resumen</div>
-    <div class="met2">
-      <div class="met"><div class="met-val o" id="statTotal">—</div><div class="met-label">Capturas totales</div></div>
-      <div class="met"><div class="met-val g" id="statHoy">—</div><div class="met-label">Capturas hoy</div></div>
-      <div class="met"><div class="met-val a" id="statUltima">—</div><div class="met-label">Última captura</div></div>
-      <div class="met"><div class="met-val r" id="statPend">—</div><div class="met-label">Sin clasificar</div></div>
-    </div>
-    <div class="sec-title">Capturas por hora del día</div>
-    <div class="card">
-      <div class="barras" id="barrasHora"></div>
-    </div>
-    <div class="sec-title">Clasificación automática</div>
-    <div class="card">
-      <p class="card-note"><i class="ti ti-info-circle" style="color:var(--naranja)"></i>&nbsp; El modelo de clasificación (Teachable Machine) todavía no está integrado. Hoy MORE captura y sube cada foto marcándola como <b style="color:#ccc">"sin_clasificar"</b>. Cuando el modelo esté activo, aquí vas a ver métricas de nivel de llenado, ciclos de vaciado y tiempo expuesto por punto.</p>
-    </div>
+    <div class="sec-title">Spots con datos</div>
+    <div id="statsFolders"></div>
   </div>
   <div class="navbar">
     <div class="nav-item" onclick="irPagina('mapa')"><i class="ti ti-map"></i><span>Mapa</span></div>
@@ -317,6 +331,14 @@ body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;m
   </div>
 </div>
 
+<!-- SELECTOR DE ZONA -->
+<div class="zona-sheet" id="zonaSheet" onclick="cerrarSelectorZona()">
+  <div class="zona-sheet-inner" onclick="event.stopPropagation()">
+    <div class="zona-sheet-title">Seleccionar zona</div>
+    <div id="zonaListado"></div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -366,7 +388,7 @@ function agruparPorSpot(lista){
 }
 
 function nombreSpot(spotId){
-  const nombres = { republica_01: "República 01" };
+  const nombres = { republica_01: "Republica 01" };
   return nombres[spotId] || spotId;
 }
 
@@ -391,86 +413,241 @@ function renderTodo(){
   renderConfigChips();
 }
 
-// ---------- MAPA / SPOTS ----------
-function renderMapaYSpots(){
-  const porSpot = agruparPorSpot(capturas);
-  const spotIds = Object.keys(porSpot);
-  const row = document.getElementById('spotsRow');
-  row.innerHTML = '';
+// ---------- ZONAS ----------
+const ZONAS = {
+  barrio_republica: {
+    nombre: 'Barrio República',
+    centro: [-33.45054798272424, -70.66782232469595],
+    estado: 'activa',
+  },
+  metro_los_heroes: {
+    nombre: 'Metro Los Héroes',
+    centro: [-33.4461694, -70.6604417],
+    estado: 'proxima',
+  },
+};
 
-  if(spotIds.length === 0){
-    row.innerHTML = '<div style="color:#555;font-size:11px;padding:6px 4px">Aún no hay capturas registradas</div>';
+let zonaActual = 'barrio_republica';
+
+// republica_01 es el único spot con dispositivo real instalado (coincide con spot_id de Firestore).
+const SPOT_COORDS = {
+  republica_01: [-33.45054798272424, -70.66782232469595],
+};
+const SPOT_ZONA = {
+  republica_01: 'barrio_republica',
+};
+
+// Puntos relevados en terreno, aún sin MORE instalado — se muestran como referencia futura.
+const PLACEHOLDER_COORDS = [
+  { nombre: 'Plaza 1', coords: [-33.45135716236292, -70.66553911287323], zona: 'barrio_republica' },
+  { nombre: 'Plaza 2', coords: [-33.45145495373606, -70.66556538781006], zona: 'barrio_republica' },
+  { nombre: 'Plaza 3', coords: [-33.45159671819008, -70.66541290338496], zona: 'barrio_republica' },
+  { nombre: 'Punto de acumulacion', coords: [-33.45163320817483, -70.66509849143115], zona: 'barrio_republica' },
+  { nombre: 'Punto de acumulacion', coords: [-33.45081166909766, -70.66702509616145], zona: 'barrio_republica' },
+  { nombre: 'Republica 02', coords: [-33.45085399066328, -70.66773525397781], zona: 'barrio_republica' },
+  { nombre: 'Republica 03', coords: [-33.45104408755957, -70.66789651531315], zona: 'barrio_republica' },
+  { nombre: 'Republica 04', coords: [-33.45002215223473, -70.6678901049977], zona: 'barrio_republica' },
+  { nombre: 'Republica 05', coords: [-33.44928232157588, -70.66798844603458], zona: 'barrio_republica' },
+  { nombre: 'Republica 06', coords: [-33.449032374012354, -70.66811480699218], zona: 'barrio_republica' },
+  { nombre: 'Republica 07', coords: [-33.448705367223084, -70.66815971444146], zona: 'barrio_republica' },
+  { nombre: 'Pasillo Republica', coords: [-33.44873805249763, -70.6678074054515], zona: 'barrio_republica' },
+  { nombre: 'Republica 09', coords: [-33.45228721351027, -70.66759365489916], zona: 'barrio_republica' },
+  { nombre: 'Republica 08', coords: [-33.451359791715575, -70.66779907807367], zona: 'barrio_republica' },
+];
+
+let mapa = null;
+let capaMarcadores = [];
+
+function initMapa(){
+  if(mapa) return;
+  mapa = L.map('mapaLeaflet', { zoomControl: true, attributionControl: true }).setView(ZONAS[zonaActual].centro, 16);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19
+  }).addTo(mapa);
+}
+
+function limpiarMarcadores(){
+  capaMarcadores.forEach(m => mapa.removeLayer(m));
+  capaMarcadores = [];
+}
+
+function dibujarMarcadoresZona(){
+  limpiarMarcadores();
+  const zona = ZONAS[zonaActual];
+  const porSpot = agruparPorSpot(capturas);
+  const spotIdsZona = Object.keys(porSpot).filter(id => (SPOT_ZONA[id] || 'barrio_republica') === zonaActual);
+  const placeholdersZona = PLACEHOLDER_COORDS.filter(p => p.zona === zonaActual);
+  const todasCoords = [];
+
+  spotIdsZona.forEach(id => {
+    const coords = SPOT_COORDS[id];
+    if(!coords) return;
+    const arr = porSpot[id];
+    const badge = badgeClasificacion(arr[0].clasificacion);
+
+    const icono = L.divIcon({
+      className: '',
+      html: `<div style="width:26px;height:26px;background:#E8650A;border:2px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 0 0 4px rgba(232,101,10,0.25)"></div>`,
+      iconSize: [26,26], iconAnchor: [13,26]
+    });
+    const m = L.marker(coords, { icon: icono }).addTo(mapa);
+    m.bindPopup(`<b>${nombreSpot(id)}</b><br>${arr.length} capturas · Estado: ${badge.texto}<br>Última: ${arr[0].hora} hrs`);
+    capaMarcadores.push(m);
+    todasCoords.push(coords);
+  });
+
+  placeholdersZona.forEach(p => {
+    const iconoPlaceholder = L.divIcon({
+      className: '',
+      html: `<div style="width:20px;height:20px;background:#555;border:1.5px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);opacity:0.65"></div>`,
+      iconSize: [20,20], iconAnchor: [10,20]
+    });
+    const m = L.marker(p.coords, { icon: iconoPlaceholder }).addTo(mapa);
+    m.bindPopup(`<b>${p.nombre}</b><br>Punto relevado · sin dispositivo instalado`);
+    capaMarcadores.push(m);
+    todasCoords.push(p.coords);
+  });
+
+  if(todasCoords.length === 0){
+    // Sin spots reales ni puntos relevados en esta zona: solo se muestra la referencia
+    // del lugar (ej. la estación), sin inventar basureros que no se han relevado.
+    const iconoZona = L.divIcon({
+      className: '',
+      html: `<div style="width:20px;height:20px;background:#2a2a2a;border:2px solid #666;border-radius:50%"></div>`,
+      iconSize: [20,20], iconAnchor: [10,10]
+    });
+    const m = L.marker(zona.centro, { icon: iconoZona }).addTo(mapa);
+    m.bindPopup(`<b>${zona.nombre}</b><br>Zona sin puntos relevados todavía`);
+    capaMarcadores.push(m);
+    mapa.setView(zona.centro, 16);
+  } else {
+    mapa.fitBounds(L.latLngBounds(todasCoords), { padding: [24, 24] });
+  }
+}
+
+function irAlSpotEnMapa(spotId){
+  irPagina('mapa');
+  const coords = SPOT_COORDS[spotId] || ZONAS[zonaActual].centro;
+  setTimeout(() => {
+    if(!mapa) return;
+    mapa.invalidateSize();
+    mapa.flyTo(coords, 18, { duration: 0.9 });
+    const marcador = capaMarcadores.find(m => {
+      const ll = m.getLatLng();
+      return Math.abs(ll.lat - coords[0]) < 1e-9 && Math.abs(ll.lng - coords[1]) < 1e-9;
+    });
+    if(marcador) setTimeout(() => marcador.openPopup(), 500);
+  }, 80);
+}
+
+// ---------- SELECTOR DE ZONA ----------
+window.abrirSelectorZona = function(){
+  const cont = document.getElementById('zonaListado');
+  cont.innerHTML = '';
+  Object.keys(ZONAS).forEach(id => {
+    const z = ZONAS[id];
+    const item = document.createElement('div');
+    item.className = 'zona-item' + (id === zonaActual ? ' activa' : '');
+    item.onclick = () => seleccionarZona(id);
+    item.innerHTML = `
+      <div class="zicon"><i class="ti ti-map-pin"></i></div>
+      <div style="flex:1">
+        <div class="zn">${z.nombre}</div>
+        <div class="zsub">${id === zonaActual ? 'Zona actual' : (z.estado === 'proxima' ? 'Próximamente' : '')}</div>
+      </div>
+      ${z.estado === 'proxima' ? '<span class="ztag">Próx.</span>' : ''}
+    `;
+    cont.appendChild(item);
+  });
+  document.getElementById('zonaSheet').classList.add('show');
+};
+
+window.cerrarSelectorZona = function(){
+  document.getElementById('zonaSheet').classList.remove('show');
+};
+
+window.seleccionarZona = function(id){
+  zonaActual = id;
+  document.getElementById('zonaActualLabel').textContent = ZONAS[id].nombre;
+  cerrarSelectorZona();
+  renderMapaYSpots();
+};
+
+// ---------- MAPA / LISTA DE SPOTS ----------
+let filtroActivo = null; // null | 'lleno' | 'vacio'
+
+window.filtrarEstado = function(estado){
+  filtroActivo = (filtroActivo === estado) ? null : estado;
+  document.getElementById('filtroLleno').classList.toggle('on', filtroActivo === 'lleno');
+  document.getElementById('filtroVacio').classList.toggle('on', filtroActivo === 'vacio');
+  renderMapaYSpots();
+};
+
+function renderMapaYSpots(){
+  initMapa();
+  dibujarMarcadoresZona();
+
+  const porSpot = agruparPorSpot(capturas);
+  let spotIds = Object.keys(porSpot).filter(id => (SPOT_ZONA[id] || 'barrio_republica') === zonaActual);
+
+  if(filtroActivo){
+    spotIds = spotIds.filter(id => (porSpot[id][0].clasificacion || 'sin_clasificar') === filtroActivo);
   }
 
-  spotIds.forEach((id, i) => {
+  const cont = document.getElementById('spotsList');
+  cont.innerHTML = '';
+
+  const placeholdersZona = PLACEHOLDER_COORDS.filter(p => p.zona === zonaActual);
+
+  if(spotIds.length === 0 && (filtroActivo || placeholdersZona.length === 0)){
+    const msg = filtroActivo
+      ? `Ningún spot de esta zona está actualmente "${filtroActivo}"`
+      : `Aún no hay puntos relevados en ${ZONAS[zonaActual].nombre}`;
+    cont.innerHTML = `<div style="color:#555;font-size:11px;padding:6px 4px">${msg}</div>`;
+  }
+
+  spotIds.forEach((id) => {
     const arr = porSpot[id];
     const ultima = arr[0];
     const badge = badgeClasificacion(ultima.clasificacion);
     const card = document.createElement('div');
-    card.className = 'spot-card' + (i===0 ? ' sel' : '');
-    card.onclick = () => { mostrarPopupReal(88,75); };
+    card.className = 'spot-card';
+    card.onclick = () => irAlSpotEnMapa(id);
     card.innerHTML = `
-      <div class="sc-top"><span class="sc-name">${nombreSpot(id)}</span><span class="sc-badge ${badge.clase}">${badge.texto}</span></div>
-      <div class="sc-hora">${ultima.hora} hrs</div>
-      <div class="sc-bar-bg"><div class="sc-bar-fill" style="width:100%;background:#E8650A"></div></div>
+      <div class="sc-pin"><i class="ti ti-map-pin"></i></div>
+      <div class="sc-body">
+        <div class="sc-top"><span class="sc-name">${nombreSpot(id)}</span><span class="sc-badge ${badge.clase}">${badge.texto}</span></div>
+        <div class="sc-hora">${arr.length} capturas · última ${ultima.hora} hrs</div>
+        <div class="sc-bar-bg"><div class="sc-bar-fill" style="width:100%;background:#E8650A"></div></div>
+      </div>
+      <i class="ti ti-chevron-right sc-chevron"></i>
     `;
-    row.appendChild(card);
+    cont.appendChild(card);
   });
 
-  // placeholders de futuros spots
-  ['B-02','B-03','B-04'].forEach(nombre => {
-    const card = document.createElement('div');
-    card.className = 'spot-card placeholder';
-    card.innerHTML = `
-      <div class="sc-top"><span class="sc-name">${nombre}</span><span class="sc-badge bg">Próx.</span></div>
-      <div class="sc-hora">Sin desplegar</div>
-      <div class="sc-bar-bg"><div class="sc-bar-fill" style="width:0%"></div></div>
-    `;
-    row.appendChild(card);
-  });
+  // Los puntos relevados sin dispositivo no tienen estado clasificable — solo se listan sin filtro activo
+  if(!filtroActivo){
+    placeholdersZona.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'spot-card placeholder';
+      card.onclick = () => irAlSpotEnMapa('__placeholder__');
+      card.innerHTML = `
+        <div class="sc-pin" style="background:#242424"><i class="ti ti-map-pin" style="color:#666"></i></div>
+        <div class="sc-body">
+          <div class="sc-top"><span class="sc-name">${p.nombre}</span><span class="sc-badge bg">Próx.</span></div>
+          <div class="sc-hora">Sin desplegar todavía</div>
+          <div class="sc-bar-bg"><div class="sc-bar-fill" style="width:0%"></div></div>
+        </div>
+      `;
+      cont.appendChild(card);
+    });
+  }
+
 
   window._porSpot = porSpot;
 }
-
-window.mostrarPopupReal = function(x,y){
-  const porSpot = window._porSpot || {};
-  const arr = porSpot['republica_01'] || Object.values(porSpot)[0] || [];
-  document.getElementById('pp-name').textContent = 'Barrio República';
-  document.getElementById('pp-total').textContent = arr.length + (arr.length===1 ? ' foto' : ' fotos');
-  document.getElementById('pp-hora').textContent = arr.length ? `${arr[0].hora} hrs` : '—';
-  const badge = arr.length ? badgeClasificacion(arr[0].clasificacion) : {texto:'—'};
-  document.getElementById('pp-estado').textContent = badge.texto;
-
-  const popup = document.getElementById('popup');
-  const wrap = popup.parentElement;
-  const W = wrap.offsetWidth, H = wrap.offsetHeight;
-  const px = (x/300)*W, py = (y/260)*H;
-  let left = px+16, top = py-70;
-  if(left+165>W) left = px-180;
-  if(top<0) top = py+16;
-  popup.style.left = left+'px';
-  popup.style.top = top+'px';
-  popup.classList.add('show');
-};
-
-window.mostrarPopupPlaceholder = function(x,y){
-  document.getElementById('pp-name').textContent = 'Punto futuro';
-  document.getElementById('pp-total').textContent = '—';
-  document.getElementById('pp-hora').textContent = '—';
-  document.getElementById('pp-estado').textContent = 'Sin desplegar';
-  const popup = document.getElementById('popup');
-  const wrap = popup.parentElement;
-  const W = wrap.offsetWidth, H = wrap.offsetHeight;
-  const px = (x/300)*W, py = (y/260)*H;
-  let left = px+16, top = py-70;
-  if(left+165>W) left = px-180;
-  if(top<0) top = py+16;
-  popup.style.left = left+'px';
-  popup.style.top = top+'px';
-  popup.classList.add('show');
-};
-
-window.cerrarPopup = function(){ document.getElementById('popup').classList.remove('show'); };
 
 // ---------- HISTORIAL ----------
 function renderHistorial(){
@@ -486,10 +663,13 @@ function renderHistorial(){
 
   sub.textContent = `${capturas.length} capturas totales`;
 
+  // Jerarquía: fecha -> spot_id -> capturas
   const porFecha = {};
   capturas.forEach(c => {
-    if(!porFecha[c.fecha]) porFecha[c.fecha] = [];
-    porFecha[c.fecha].push(c);
+    if(!porFecha[c.fecha]) porFecha[c.fecha] = {};
+    const spotId = c.spot_id || 'sin_spot';
+    if(!porFecha[c.fecha][spotId]) porFecha[c.fecha][spotId] = [];
+    porFecha[c.fecha][spotId].push(c);
   });
 
   const hoy = new Date().toISOString().slice(0,10);
@@ -500,20 +680,51 @@ function renderHistorial(){
     titulo.textContent = fecha === hoy ? `Hoy — ${formatearFechaLarga(fecha)}` : formatearFechaLarga(fecha);
     cont.appendChild(titulo);
 
-    porFecha[fecha].forEach(c => {
-      const badge = badgeClasificacion(c.clasificacion);
-      const card = document.createElement('div');
-      card.className = 'cap-card';
-      card.onclick = () => abrirLightbox(c);
-      card.innerHTML = `
-        <div class="cap-foto" style="${c.foto_url ? `background-image:url('${c.foto_url}')` : ''}">${c.foto_url ? '' : '<i class="ti ti-camera"></i>'}</div>
-        <div class="cap-info">
-          <div class="cap-top"><span class="cap-spot">${nombreSpot(c.spot_id)}</span><span class="cap-badge ${badge.clase}">${badge.texto}</span></div>
-          <div class="cap-bottom">${c.hora} hrs · ${c.ubicacion || ''}</div>
+    const porSpotEnFecha = porFecha[fecha];
+
+    Object.keys(porSpotEnFecha).sort().forEach(spotId => {
+      const arrSpot = porSpotEnFecha[spotId];
+
+      const folder = document.createElement('div');
+      folder.className = 'hist-folder';
+      folder.innerHTML = `
+        <div class="folder-head">
+          <div class="folder-icon"><i class="ti ti-folder"></i></div>
+          <div class="folder-bubble">
+            <span class="fn">${nombreSpot(spotId)}</span>
+            <span class="fr">${arrSpot.length} captura${arrSpot.length === 1 ? '' : 's'}</span>
+          </div>
+          <i class="ti ti-chevron-right folder-chevron"></i>
         </div>
-        <i class="ti ti-chevron-right" style="color:#444;font-size:14px"></i>
+        <div class="folder-body">
+          <div class="folder-body-inner"></div>
+        </div>
       `;
-      cont.appendChild(card);
+      cont.appendChild(folder);
+
+      const body = folder.querySelector('.folder-body');
+      const inner = folder.querySelector('.folder-body-inner');
+
+      arrSpot.forEach(c => {
+        const badge = badgeClasificacion(c.clasificacion);
+        const card = document.createElement('div');
+        card.className = 'cap-card';
+        card.onclick = (e) => { e.stopPropagation(); abrirLightbox(c); };
+        card.innerHTML = `
+          <div class="cap-foto" style="${c.foto_url ? `background-image:url('${c.foto_url}')` : ''}">${c.foto_url ? '' : '<i class="ti ti-camera"></i>'}</div>
+          <div class="cap-info">
+            <div class="cap-top"><span class="cap-spot">${c.hora} hrs</span><span class="cap-badge ${badge.clase}">${badge.texto}</span></div>
+            <div class="cap-bottom">${c.ubicacion || ''}</div>
+          </div>
+          <i class="ti ti-chevron-right" style="color:#444;font-size:14px"></i>
+        `;
+        inner.appendChild(card);
+      });
+
+      folder.querySelector('.folder-head').onclick = () => {
+        const abierta = folder.classList.toggle('open');
+        body.style.maxHeight = abierta ? body.scrollHeight + 'px' : null;
+      };
     });
   });
 }
@@ -527,35 +738,152 @@ window.abrirLightbox = function(c){
 window.cerrarLightbox = function(){ document.getElementById('lightbox').classList.remove('show'); };
 
 // ---------- ESTADÍSTICAS ----------
+const COLOR_LLENO = '#e74c3c';
+const COLOR_VACIO = '#2ecc71';
+const COLOR_SIN_DATO = '#333';
+
 function renderStats(){
-  const total = capturas.length;
-  const hoy = new Date().toISOString().slice(0,10);
-  const capturasHoy = capturas.filter(c => c.fecha === hoy).length;
-  const sinClasificar = capturas.filter(c => !c.clasificacion || c.clasificacion === 'sin_clasificar').length;
-  const ultima = capturas.length ? `${capturas[0].hora.slice(0,5)}` : '—';
+  const porSpot = agruparPorSpot(capturas);
+  const cont = document.getElementById('statsFolders');
+  const spotIds = Object.keys(porSpot);
 
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statHoy').textContent = capturasHoy;
-  document.getElementById('statUltima').textContent = ultima;
-  document.getElementById('statPend').textContent = sinClasificar;
+  // Preservar qué carpeta y período estaban abiertos al re-renderizar (llega data nueva en vivo)
+  const abiertaPrevia = cont.querySelector('.folder-card.open')?.dataset.spot || null;
+  const periodoPrevio = cont.querySelector('.periodo-btn.on')?.dataset.periodo || 'diario';
 
-  const porHora = new Array(24).fill(0);
-  capturas.forEach(c => {
-    const h = parseInt((c.hora||'0:0').split(':')[0], 10);
-    if(!isNaN(h)) porHora[h]++;
-  });
-  const max = Math.max(...porHora, 1);
-
-  const cont = document.getElementById('barrasHora');
   cont.innerHTML = '';
-  porHora.forEach((v, h) => {
-    if(h < 6 || h > 22) return; // rango relevante del día
-    const w = document.createElement('div');
-    w.className = 'barra-w';
-    const alturaPct = Math.max((v/max)*100, 2);
-    w.innerHTML = `<div class="barra" style="height:${alturaPct}%"></div><div class="bh">${h}h</div>`;
-    cont.appendChild(w);
+
+  if(spotIds.length === 0){
+    cont.innerHTML = `<div class="empty-state"><i class="ti ti-chart-bar-off"></i><p>Todavía no hay capturas suficientes para generar estadísticas.</p></div>`;
+    return;
+  }
+
+  spotIds.forEach(id => {
+    const arr = porSpot[id]; // orden desc (más reciente primero)
+    const ultima = arr[0];
+    const badge = badgeClasificacion(ultima.clasificacion);
+
+    const folder = document.createElement('div');
+    folder.className = 'folder-card';
+    folder.dataset.spot = id;
+
+    folder.innerHTML = `
+      <div class="folder-head">
+        <div class="folder-icon"><i class="ti ti-folder"></i></div>
+        <div class="folder-bubble">
+          <span class="fn">${nombreSpot(id)}</span>
+          <span class="fr">${arr.length} capturas · ${badge.texto}</span>
+        </div>
+        <i class="ti ti-chevron-right folder-chevron"></i>
+      </div>
+      <div class="folder-body">
+        <div class="folder-body-inner">
+          <div class="periodo-toggle">
+            <button class="periodo-btn" data-periodo="diario">Diario</button>
+            <button class="periodo-btn" data-periodo="semanal">Semanal</button>
+          </div>
+          <div class="chart-container" id="chart-${id}"></div>
+          <div class="chart-legend">
+            <span><span class="dot" style="background:${COLOR_LLENO}"></span>Lleno</span>
+            <span><span class="dot" style="background:${COLOR_VACIO}"></span>Vacío</span>
+            <span><span class="dot" style="background:${COLOR_SIN_DATO}"></span>Sin dato</span>
+          </div>
+        </div>
+      </div>
+    `;
+    cont.appendChild(folder);
+
+    const periodoInicial = (id === abiertaPrevia) ? periodoPrevio : 'diario';
+    folder.querySelectorAll('.periodo-btn').forEach(b => {
+      b.classList.toggle('on', b.dataset.periodo === periodoInicial);
+    });
+
+    folder.querySelector('.folder-head').onclick = () => {
+      const yaAbierta = folder.classList.contains('open');
+      document.querySelectorAll('.folder-card.open').forEach(f => f.classList.remove('open'));
+      if(!yaAbierta){
+        folder.classList.add('open');
+        const periodoActivo = folder.querySelector('.periodo-btn.on').dataset.periodo;
+        dibujarGraficoSpot(id, arr, periodoActivo);
+      }
+    };
+
+    folder.querySelectorAll('.periodo-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        folder.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        dibujarGraficoSpot(id, arr, btn.dataset.periodo);
+      };
+    });
+
+    if(id === abiertaPrevia){
+      folder.classList.add('open');
+      dibujarGraficoSpot(id, arr, periodoInicial);
+    }
   });
+}
+
+function colorYAlturaPorEstado(clasificacion){
+  if(clasificacion === 'lleno') return { color: COLOR_LLENO, alturaPct: 100 };
+  if(clasificacion === 'vacio') return { color: COLOR_VACIO, alturaPct: 28 };
+  return { color: COLOR_SIN_DATO, alturaPct: 6 };
+}
+
+function dibujarGraficoSpot(spotId, arrCapturas, periodo){
+  const cont = document.getElementById(`chart-${spotId}`);
+  if(!cont) return;
+
+  if(periodo === 'diario'){
+    // Día de referencia: la fecha de la captura más reciente de este spot
+    const fechaRef = arrCapturas[0].fecha;
+    const delDia = arrCapturas.filter(c => c.fecha === fechaRef);
+
+    // Última clasificación registrada por cada hora (delDia viene ordenado desc, así que
+    // la primera vez que aparece una hora es su estado más reciente)
+    const porHora = {};
+    delDia.forEach(c => {
+      const h = parseInt((c.hora || '0:0').split(':')[0], 10);
+      if(!(h in porHora)) porHora[h] = c.clasificacion;
+    });
+
+    const HORA_INICIO = 6, HORA_FIN = 22;
+    let html = '<div class="chart-barras">';
+    for(let h = HORA_INICIO; h <= HORA_FIN; h++){
+      const { color, alturaPct } = colorYAlturaPorEstado(porHora[h]);
+      html += `<div class="chart-barra-w"><div class="chart-barra" style="height:${alturaPct}%;background:${color}"></div><div class="chart-bh">${h}</div></div>`;
+    }
+    html += '</div>';
+
+    const fechaBonita = formatearFechaLarga(fechaRef);
+    cont.innerHTML = `<div style="color:#666;font-size:10px;margin-bottom:6px">${fechaBonita} · por hora</div>${html}`;
+
+  } else {
+    // Semanal: últimos 7 días con datos, estado del día = "lleno" si en algún momento
+    // se registró lleno ese día, si no "vacio" si hubo capturas, si no hay datos ese día, "sin dato"
+    const hoy = new Date();
+    const dias = [];
+    for(let i = 6; i >= 0; i--){
+      const d = new Date(hoy);
+      d.setDate(hoy.getDate() - i);
+      dias.push(d.toISOString().slice(0,10));
+    }
+
+    let html = '<div class="chart-barras">';
+    dias.forEach(fecha => {
+      const delDia = arrCapturas.filter(c => c.fecha === fecha);
+      let estado = null;
+      if(delDia.length){
+        estado = delDia.some(c => c.clasificacion === 'lleno') ? 'lleno' : 'vacio';
+      }
+      const { color, alturaPct } = colorYAlturaPorEstado(estado);
+      const etiqueta = new Date(fecha + 'T00:00:00').toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '');
+      html += `<div class="chart-barra-w"><div class="chart-barra" style="height:${alturaPct}%;background:${color}"></div><div class="chart-bh">${etiqueta}</div></div>`;
+    });
+    html += '</div>';
+
+    cont.innerHTML = `<div style="color:#666;font-size:10px;margin-bottom:6px">Últimos 7 días</div>${html}`;
+  }
 }
 
 // ---------- CONFIG ----------
@@ -569,9 +897,11 @@ function renderConfigChips(){
 window.irPagina = function(p){
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
-  cerrarPopup();
+  if(p === 'mapa' && mapa){
+    setTimeout(() => mapa.invalidateSize(), 250);
+  }
 };
-window.irStats = function(){ cerrarPopup(); irPagina('stats'); };
+window.irStats = function(){ irPagina('stats'); };
 
 // reloj simple en status bar
 function tick(){
